@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_assessment/common/constants/salary_levels.dart';
+import 'package:mobile_assessment/modules/details/domain/usecases/calculate_employment_action_usecase.dart';
 
-import '../../features/details/domain/usecases/calculate_employment_action_usecase.dart';
 
 void main() {
   group('Employment Action Calculation Tests', () {

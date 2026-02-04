@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_assessment/core/models/employee.dart';
+import 'package:mobile_assessment/modules/home/presentation/widgets/employee_card.dart';
 
-import '../../features/home/presentation/widgets/employee_card.dart';
 
 void main() {
   group('EmployeeCard Widget Tests', () {

@@ -1,36 +1,56 @@
+
 name: mobile_assessment
 description: Irecharge mobile team assessment
-
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.3 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
+
 dependencies:
   flutter:
     sdk: flutter
 
+  # State Management
+  provider: ^6.1.1
 
-  cupertino_icons: ^1.0.2
-  google_fonts:
+  # Database
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+
+  # JSON Serialization
   json_annotation: ^4.8.1
+  fl_chart: ^1.1.1
+
+  # UI Enhancement (optional)
+  # google_fonts: ^6.1.0
+  # shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
 
-  flutter_lints: ^2.0.0
-  json_serializable:
-  build_runner:
+  # Code Generation
+  build_runner: ^2.4.6
+  json_serializable: ^6.7.1
 
-#flutter_icons:
-#  ios: true
-#  android: true
-#  image_path_ios: 'assets/images/logo_transparent.png'
-#  image_path_android: 'assets/images/logo_transparent.png'
+  # Testing
+  mockito: ^5.4.4
 
 flutter:
-
   uses-material-design: true
 
+  # To add assets to your application, add an assets section like this:
   # assets:
-  #   - assets/responses/
+  #   - images/
+  #   - icons/
+
+  # To add custom fonts to your application, add a fonts section here
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic

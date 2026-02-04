@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/models/employee.dart';
 import '../../../../common/constants/app_colors.dart';
 import '../../../../common/constants/salary_levels.dart';
-import '../widgets/action_button.dart';
-import '../widgets/info_card.dart';
-import '../widgets/productivity_meter.dart';
-import '../widgets/status_badge.dart';
+import '../../domain/usecases/calculate_employment_action_usecase.dart';
 
 class EmployeeDetailsScreen extends StatelessWidget {
   final Employee employee;
@@ -17,7 +15,6 @@ class EmployeeDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate employment action
     final actionResult = EmploymentActionResult.calculate(
       productivityScore: employee.productivityScore,
       currentLevel: employee.level,
@@ -25,171 +22,519 @@ class EmployeeDetailsScreen extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Employee Details'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header Card
-            _buildHeaderCard(context, actionResult),
-            const SizedBox(height: 16),
-            // Productivity Meter
-            ProductivityMeter(score: employee.productivityScore),
-            const SizedBox(height: 16),
-            // Current Information
-            _buildSectionTitle(context, 'Current Information'),
-            InfoCard(
-              icon: Icons.badge_outlined,
-              label: 'Employee ID',
-              value: '#${employee.id}',
-              color: AppColors.primary,
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: CustomScrollView(
+        slivers: [
+          // App Bar
+          SliverAppBar(
+            expandedHeight: 250,
+            pinned: true,
+            backgroundColor:  Colors.white,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
             ),
-            InfoCard(
-              icon: Icons.business_center_outlined,
-              label: 'Designation',
-              value: employee.designation,
-              color: AppColors.secondary,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildHeader(context, actionResult),
             ),
-            InfoCard(
-              icon: Icons.trending_up_outlined,
-              label: 'Current Level',
-              value: 'Level ${employee.level} - ${SalaryLevels.getLevelDescription(employee.level)}',
-              color: AppColors.getLevelColor(employee.level),
-            ),
-            InfoCard(
-              icon: Icons.attach_money_outlined,
-              label: 'Current Salary',
-              value: SalaryLevels.formatSalary(employee.currentSalaryInt),
-              color: AppColors.success,
-            ),
-            const SizedBox(height: 16),
-            // Employment Action
-            _buildSectionTitle(context, 'Employment Action'),
-            _buildActionCard(context, actionResult),
-            const SizedBox(height: 16),
-            // New Information (if changed)
-            if (actionResult.hasLevelChange || actionResult.hasSalaryChange) ...[
-              _buildSectionTitle(context, 'After Action'),
-              if (actionResult.action != EmploymentAction.termination)
-                InfoCard(
-                  icon: Icons.trending_up_outlined,
-                  label: 'New Level',
-                  value: 'Level ${actionResult.newLevel} - ${SalaryLevels.getLevelDescription(actionResult.newLevel)}',
-                  color: AppColors.getLevelColor(actionResult.newLevel),
+          ),
+          // Content
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
                 ),
-              InfoCard(
-                icon: Icons.attach_money_outlined,
-                label: 'New Salary',
-                value: actionResult.action == EmploymentAction.termination
-                    ? 'N/A'
-                    : SalaryLevels.formatSalary(actionResult.newSalary),
-                color: actionResult.isPositive ? AppColors.success : AppColors.error,
               ),
-              if (actionResult.hasSalaryChange &&
-                  actionResult.action != EmploymentAction.termination)
-                InfoCard(
-                  icon: Icons.trending_up_outlined,
-                  label: 'Salary Change',
-                  value: '${actionResult.salaryChange >= 0 ? '+' : ''}${SalaryLevels.formatSalary(actionResult.salaryChange.abs())} (${actionResult.salaryChangePercentage.toStringAsFixed(1)}%)',
-                  color: actionResult.salaryChange >= 0
-                      ? AppColors.success
-                      : AppColors.error,
-                ),
-              const SizedBox(height: 16),
-            ],
-            // Special Note for Level 0
-            if (employee.level == 0 &&
-                employee.productivityScore < SalaryLevels.noChangeThresholdLow)
-              _buildSpecialNote(context),
-            const SizedBox(height: 32),
-          ],
-        ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 24),
+
+                  _buildPerformanceSection(context),
+                  const SizedBox(height: 16),
+
+                  _buildSalarySection(context, actionResult),
+                  const SizedBox(height: 16),
+
+                  _buildEmploymentActionSection(context, actionResult),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHeaderCard(BuildContext context, EmploymentActionResult actionResult) {
+  Widget _buildHeader(BuildContext context, EmploymentActionResult actionResult) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(24, 80, 24, 24),
+      decoration: const BoxDecoration(
+        color: Color(0xFF2C3E50),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           // Profile Icon
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.person,
-              size: 48,
+              size: 40,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           // Employee Name
           Text(
             employee.fullName,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
               color: Colors.white,
-              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           // Designation
           Text(
             employee.designation,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white.withOpacity(0.9),
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.white.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           // Status Badge
-          StatusBadge(action: actionResult.action),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getActionColor(actionResult.action).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _getActionColor(actionResult.action).withOpacity(0.4),
+                width: 1.5,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getActionIcon(actionResult.action),
+                  color: _getActionColor(actionResult.action),
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  actionResult.action.displayName,
+                  style: TextStyle(
+                    color: _getActionColor(actionResult.action),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
+  Widget _buildPerformanceSection(BuildContext context) {
+    // Mock data for 6 months performance
+    final performanceData = [
+      65.0, // Month 1
+      70.0, // Month 2
+      68.0, // Month 3
+      72.0, // Month 4
+      75.0, // Month 5
+      employee.productivityScore, // Month 6 (current)
+    ];
+
+    final trend = employee.productivityScore - performanceData[0];
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF007AFF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.trending_up,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Performance Score',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Last 6 months',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${employee.productivityScore.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A1A),
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Current Score',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF8E8E93),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        trend >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 14,
+                        color: trend >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${trend >= 0 ? '+' : ''}${trend.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: trend >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'vs 6 months ago',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF8E8E93),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const Spacer(),
+              SizedBox(
+                height: 60,
+                width: 140,
+                child: LineChart(
+                  LineChartData(
+                    gridData: const FlGridData(show: false),
+                    titlesData: const FlTitlesData(show: false),
+                    borderData: FlBorderData(show: false),
+                    minX: 0,
+                    maxX: 5,
+                    minY: performanceData.reduce((a, b) => a < b ? a : b) - 5,
+                    maxY: performanceData.reduce((a, b) => a > b ? a : b) + 5,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: List.generate(
+                          performanceData.length,
+                              (index) => FlSpot(index.toDouble(), performanceData[index]),
+                        ),
+                        isCurved: true,
+                        color: const Color(0xFF007AFF),
+                        barWidth: 2.5,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                    lineTouchData: const LineTouchData(enabled: false),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoPill(
+                  'Employee ID',
+                  '#${employee.id}',
+                  const Color(0xFF007AFF),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildInfoPill(
+                  'Level',
+                  'Level ${employee.level}',
+                  _getLevelColor(employee.level),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildActionCard(BuildContext context, EmploymentActionResult actionResult) {
-    final actionColor = AppColors.getActionColor(actionResult.action.displayName);
+  Widget _buildSalarySection(BuildContext context, EmploymentActionResult actionResult) {
+    final salaryChange = actionResult.newSalary - employee.currentSalaryInt;
+    final hasChange = salaryChange != 0;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: actionColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: actionColor.withOpacity(0.3), width: 2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF34C759),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.attach_money,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Salary Information',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Current & projected',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      SalaryLevels.formatSalary(employee.currentSalaryInt),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Current Salary',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF8E8E93),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (hasChange)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: salaryChange >= 0
+                        ? const Color(0xFF34C759).withOpacity(0.1)
+                        : const Color(0xFFFF3B30).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        salaryChange >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 14,
+                        color: salaryChange >= 0
+                            ? const Color(0xFF34C759)
+                            : const Color(0xFFFF3B30),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${actionResult.salaryChangePercentage.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: salaryChange >= 0
+                              ? const Color(0xFF34C759)
+                              : const Color(0xFFFF3B30),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (hasChange) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'After Action',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF8E8E93),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  actionResult.action == EmploymentAction.termination
+                      ? 'Terminated'
+                      : SalaryLevels.formatSalary(actionResult.newSalary),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: actionResult.action == EmploymentAction.termination
+                        ? const Color(0xFFFF3B30)
+                        : const Color(0xFF1A1A1A),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Change Amount',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF8E8E93),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  actionResult.action == EmploymentAction.termination
+                      ? 'N/A'
+                      : '${salaryChange >= 0 ? '+' : ''}${SalaryLevels.formatSalary(salaryChange.abs())}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: salaryChange >= 0
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF3B30),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmploymentActionSection(BuildContext context, EmploymentActionResult actionResult) {
+    final actionColor = _getActionColor(actionResult.action);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,54 +545,188 @@ class EmployeeDetailsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: actionColor,
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   _getActionIcon(actionResult.action),
                   color: Colors.white,
-                  size: 24,
+                  size: 20,
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      actionResult.action.displayName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: actionColor,
+                      'Employment Action',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 2),
                     Text(
-                      _getActionSubtitle(actionResult),
-                      style: Theme.of(context).textTheme.bodySmall,
+                      'Recommended action',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          Text(
+            actionResult.action.displayName,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: actionColor,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getActionSubtitle(actionResult),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF8E8E93),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 12),
-          // Description
           Text(
             actionResult.description,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: const TextStyle(
+              fontSize: 14,
               height: 1.5,
+              color: Color(0xFF1A1A1A),
             ),
           ),
           const SizedBox(height: 12),
-          // Explanation
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: actionColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: actionColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    actionResult.action.description,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: actionColor,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (actionResult.hasLevelChange) ...[
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Current Level',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Level ${employee.level}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                  ],
+                ),
+                Icon(
+                  Icons.arrow_forward,
+                  color: Colors.grey[400],
+                  size: 24,
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'New Level',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8E8E93),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      actionResult.action == EmploymentAction.termination
+                          ? 'N/A'
+                          : 'Level ${actionResult.newLevel}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: actionResult.action == EmploymentAction.termination
+                            ? const Color(0xFFFF3B30)
+                            : actionColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoPill(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            actionResult.action.description,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
-              fontStyle: FontStyle.italic,
-              height: 1.4,
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -255,36 +734,36 @@ class EmployeeDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSpecialNote(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.warning.withOpacity(0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.info_outline,
-            color: AppColors.warning,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Special Note: Level 0 employees cannot be demoted. With a productivity score below 40%, this employee will be terminated.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textPrimary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  Color _getLevelColor(int level) {
+    switch (level) {
+      case 0:
+        return const Color(0xFF8E8E93);
+      case 1:
+        return const Color(0xFF34C759);
+      case 2:
+        return const Color(0xFF007AFF);
+      case 3:
+        return const Color(0xFFAF52DE);
+      case 4:
+        return const Color(0xFFFF9500);
+      case 5:
+        return const Color(0xFFFF3B30);
+      default:
+        return const Color(0xFF8E8E93);
+    }
+  }
+
+  Color _getActionColor(EmploymentAction action) {
+    switch (action) {
+      case EmploymentAction.promotion:
+        return const Color(0xFF34C759);
+      case EmploymentAction.demotion:
+        return const Color(0xFFFF9500);
+      case EmploymentAction.termination:
+        return const Color(0xFFFF3B30);
+      case EmploymentAction.noChange:
+        return const Color(0xFF007AFF);
+    }
   }
 
   IconData _getActionIcon(EmploymentAction action) {
