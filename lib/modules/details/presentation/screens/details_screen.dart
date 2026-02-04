@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/models/employee.dart';
-import '../../../../common/constants/app_colors.dart';
 import '../../../../common/constants/salary_levels.dart';
 import '../../domain/usecases/calculate_employment_action_usecase.dart';
 
